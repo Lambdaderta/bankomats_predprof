@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Главная</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: rgb(164, 167, 164);
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close:hover, .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .main {
+            display: flex;
+            justify-content: center;
+            gap: 10%;
+            align-items: center;
+            background-color: rgb(164, 167, 164);
+            width: 100vw;
+            height: 10vh;
+        }
+        #btn1, #btn2 {
+            background-color: aliceblue;
+            width: 30vw;
+            height: 7vh;
+            display: flex;
+            justify-content: center;
+            border-radius: 10px;
+            align-items: center;
+        }
+        #map {
+            height: 90vh;
+            width: 100vw;
+            margin-top: 2vh;
+            z-index: 1;
+        }
+        .ad-btn {
+            width: 30vw;
+            border-radius: 10px;
+            height: 5vh;
+            font-size: medium;
+        }
+        .auth-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .auth-buttons button {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .auth-buttons button:hover {
+            background-color: #0056b3;
+        }
+        .logout-button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: transparent;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+        }
+        .logout-button:hover {
+            color: #0056b3;
+        }
+        .logout-modal {
+            display: none;
+            position: absolute;
+            top: 50px;
+            right: 10px;
+            background-color: #fefefe;
+            border: 1px solid #888;
+            padding: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+        .logout-modal p {
+            margin: 0;
+            font-size: 14px;
+        }
+        .logout-modal button {
+            margin-top: 10px;
+            padding: 5px 10px;
+            font-size: 14px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .logout-modal button:hover {
+            background-color: #0056b3;
+        }
+        .upload-form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+        .upload-form input[type="file"] {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .upload-form input[type="submit"] {
+            padding: 10px 20px;
+            background-color: #007bff;
+            border: none;
+            border-radius: 5px;
+            color: #fff;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .upload-form input[type="submit"]:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    {% if name %}
+        <button class="logout-button" onclick="toggleLogoutModal()">⬇</button>
+        <div class="logout-modal" id="logoutModal">
+            <p>{{ name }}</p>
+            <p>Выйти из аккаунта?</p>
+            <button onclick="logout()">Выйти</button>
+        </div>
+        <div class="main">
+            <button id="btn1">Администрирование</button>
+            <button id="btn2">Отчётность</button>
+        </div>
+        <div id="modal1" class="modal">
+            <div class="modal-content">
+                <span class="close" id="close1">&times;</span>
+                <h2>Администрирование</h2>
+                <form class="upload-form" action="/upload" method="post" enctype="multipart/form-data">
+                    <input type="file" name="file" required>
+                    <input type="submit" value="Загрузить данные">
+                </form>
+            </div>
+        </div>
+        <div id="modal2" class="modal">
+            <div class="modal-content">
+                <span class="close" id="close2">&times;</span>
+                <h2>Отчётность</h2>
+                <button></button>
+                <button></button>
+                <button></button>
+            </div>
+        </div>
+        <div id="map"></div>
+    {% else %}
+        <div class="auth-buttons">
+            <h2>Пожалуйста, войдите в аккаунт</h2>
+            <button onclick="window.location.href='/login'">Войти</button>
+            <button onclick="window.location.href='/register'">Зарегистрироваться</button>
+        </div>
+    {% endif %}
+
+    <script>
+        var modal1 = document.getElementById("modal1");
+        var modal2 = document.getElementById("modal2");
+        var btn1 = document.getElementById("btn1");
+        var btn2 = document.getElementById("btn2");
+        var close1 = document.getElementById("close1");
+        var close2 = document.getElementById("close2");
+        var mapDiv = document.getElementById("map");
+
+        btn1.onclick = function() {
+            modal1.style.display = "block";
+            mapDiv.style.pointerEvents = "none";
+        }
+
+        btn2.onclick = function() {
+            modal2.style.display = "block";
+            mapDiv.style.pointerEvents = "none";
+        }
+
+        close1.onclick = function() {
+            modal1.style.display = "none";
+            mapDiv.style.pointerEvents = "auto";
+        }
+
+        close2.onclick = function() {
+            modal2.style.display = "none";
+            mapDiv.style.pointerEvents = "auto";
+        }
+
+        window.onclick = function(event) {
+            if (event.target == modal1) {
+                modal1.style.display = "none";
+                mapDiv.style.pointerEvents = "auto";
+            }
+            if (event.target == modal2) {
+                modal2.style.display = "none";
+                mapDiv.style.pointerEvents = "auto";
+            }
+        }
+
+        function toggleLogoutModal() {
+            var logoutModal = document.getElementById("logoutModal");
+            if (logoutModal.style.display === "none") {
+                logoutModal.style.display = "block";
+            } else {
+                logoutModal.style.display = "none";
+            }
+        }
+
+        function logout() {
+            window.location.href = '/logout';
+        }
+    </script>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        var map = L.map('map').setView([55.7558, 37.6173], 10);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+        }).addTo(map);
+
+        function onMapClick(e) {
+            var marker = L.marker(e.latlng).addTo(map);
+            marker.bindPopup("Вы добавили метку на:<br>" + e.latlng.toString()).openPopup();
+        }
+
+        map.on('click', onMapClick);
+    </script>
+</body>
+</html>
