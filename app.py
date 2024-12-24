@@ -4,7 +4,7 @@ import pandas as pd
 import os
 
 app = Flask(__name__)
-app.secret_key = 'supersecretkey'
+app.secret_key = 'ключик_секретик'
 
 def init_db():
     conn = sqlite3.connect('database.db')
@@ -97,52 +97,138 @@ def logout():
 
 @app.route('/upload', methods=['POST'])
 def upload():
+    if 'file' not in request.files:
+        flash('No file part', 'error')
+        return redirect(url_for('home'))
     file = request.files['file']
-    filename = os.path.join('uploads', file.filename)
-    file.save(filename)
+    if file.filename == '':
+        flash('No selected file', 'error')
+        return redirect(url_for('home'))
+    if file:
+        upload_dir = 'uploads'
+        if not os.path.exists(upload_dir):
+            os.makedirs(upload_dir)
+        filename = os.path.join(upload_dir, file.filename)
+        file.save(filename)
 
-    df = pd.read_csv(filename)
-    user_id = session.get('user_id')
+        try:
+            df = pd.read_csv(filename)
+        except Exception as e:
+            flash(f'Error reading CSV file: {e}', 'error')
+            return redirect(url_for('home'))
 
-    incassators = ["ЗаменаКассеты", "ЗаполнениеКассеты"]
-    mechanic = ["ЗажеваннаяКупюра", "ЗагрузкаПроцессораВысокая", "ОжиданиеПользователя", "АварийноеВыключение", "ОшибкаОбновления", "ОшибкаПечати", "ОшибкаПриемаКупюр", "ОшибкаКарт", "ОшибкаВыдачиНаличности", "ОшибкаТехническая", "ОшибкаЖесткогоДиска", "ОтказВОбслуживании", "СигнализацияОшибки", "ОбслуживаниеТребуется", "ОшибкаСинхронизацииДанных", "ОшибкаСети", "ПроблемаСоСвязью"]
-    all_good = ["ВосстановлениеСвязи", "ВыходПользователя", "ПроверкаБаланс", "ОбработкаЗапроса", "СнятиеНаличными", "ВнесениеНаличных", "ВходПользователя", "ПроверкаЖесткогоДиска", "ПерезагрузкаУстройства"]
-    chek_need = ["СостояниеКартриджа", "СостояниеПриемаКупюр", "Предупреждение", "ПроверкаСостоянияКлавиатуры", "ПроверкаСостоянияКарт", "ПроверкаЭнергоснабжения", "ОбновлениеПрограммногоОбеспечения", "ТестированиеУстройства", "СостояниеУстройстваИзменено", "ПроверкаКассеты", "ОбновлениеБезопасности", "ЗавершениеТранзакции", "ПроверкаОбновлений", "ПроверкаСистемныхЛогов", "ТестированиеСистемы", "УстановкаОбновлений", "ПроверкаСостоянияСвязи", "ПроверкаСостоянияПечати"]
-    incassator_values = ['Низкий уровень наличных', 'Нет наличных', 'Купюры отсутствуют']
-    good_values = ['Клавиатура работает', 'Все карты в порядке', 'Энергоснабжение в порядке', 'Успешно', 'Хорошее', 'Полный', 'Работает', 'Обновления отсутствуют', 'Ошибок не найдено', 'Все системы работают', 'Принтер работает']
+        user_id = session.get('user_id')
 
-    def determine_label(row):
-        if row['EventType'] in incassators:
-            return 'нужна инкассаторская машина'
-        elif row['EventType'] in mechanic:
-            return 'нужен механик'
-        elif row['EventType'] in all_good:
-            return 'все в порядке'
-        elif row['EventType'] in chek_need:
-            if pd.notna(row['Value']):
-                if row['Value'] in incassator_values:
-                    return 'нужна инкассаторская машина'
-                elif row['Value'] in good_values:
-                    return 'все в порядке'
+        incassators = [
+            "ЗаменаКассеты",
+            "ЗаполнениеКассеты"
+        ]
+
+        mechanic = [
+            "ЗажеваннаяКупюра",
+            "ЗагрузкаПроцессораВысокая",
+            "ОжиданиеПользователя",
+            "АварийноеВыключение",
+            "ОшибкаОбновления",
+            "ОшибкаПечати",
+            "ОшибкаПриемаКупюр",
+            "ОшибкаКарт",
+            "ОшибкаВыдачиНаличности",
+            "ОшибкаТехническая",
+            "ОшибкаЖесткогоДиска",
+            "ОтказВОбслуживании",
+            "СигнализацияОшибки",
+            "ОбслуживаниеТребуется",
+            "ОшибкаСинхронизацииДанных",
+            "ОшибкаСети",
+            "ПроблемаСоСвязью"
+        ]
+
+        all_good = [
+            "ВосстановлениеСвязи",
+            "ВыходПользователя",
+            "ПроверкаБаланс",
+            "ОбработкаЗапроса",
+            "СнятиеНаличными",
+            "ВнесениеНаличных",
+            "ВходПользователя",
+            "ПроверкаЖесткогоДиска",
+            "ПерезагрузкаУстройства"
+        ]
+
+        chek_need = [
+            "СостояниеКартриджа",
+            "СостояниеПриемаКупюр",
+            "Предупреждение",
+            "ПроверкаСостоянияКлавиатуры",
+            "ПроверкаСостоянияКарт",
+            "ПроверкаЭнергоснабжения",
+            "ОбновлениеПрограммногоОбеспечения",
+            "ТестированиеУстройства",
+            "СостояниеУстройстваИзменено",
+            "ПроверкаКассеты",
+            "ОбновлениеБезопасности",
+            "ЗавершениеТранзакции",
+            "ПроверкаОбновлений",
+            "ПроверкаСистемныхЛогов",
+            "ТестированиеСистемы",
+            "УстановкаОбновлений",
+            "ПроверкаСостоянияСвязи",
+            "ПроверкаСостоянияПечати"
+        ]
+
+        incassator_values = [
+            'Низкий уровень наличных',
+            'Нет наличных',
+            'Купюры отсутствуют',
+        ]
+
+        good_values = [
+            'Клавиатура работает',
+            'Все карты в порядке',
+            'Энергоснабжение в порядке',
+            'Успешно',
+            'Хорошее',
+            'Полный',
+            'Работает',
+            'Обновления отсутствуют',
+            'Ошибок не найдено',
+            'Все системы работают',
+            'Принтер работает'
+        ]
+
+        def determine_label(row):
+            if row['EventType'] in incassators:
+                return 'нужна инкассаторская машина'
+            elif row['EventType'] in mechanic:
+                return 'нужен механик'
+            elif row['EventType'] in all_good:
+                return 'все в порядке'
+            elif row['EventType'] in chek_need:
+                if pd.notna(row['Value']):
+                    if row['Value'] in incassator_values:
+                        return 'нужна инкассаторская машина'
+                    elif row['Value'] in good_values:
+                        return 'все в порядке'
+                    else:
+                        return 'нужен механик'
                 else:
                     return 'нужен механик'
             else:
-                return 'нужен механик'
-        else:
-            return 'неизвестно'
+                return 'неизвестно'
 
-    df['Label'] = df.apply(determine_label, axis=1)
+        df['Label'] = df.apply(determine_label, axis=1)
 
-    conn = sqlite3.connect('database.db')
-    cursor = conn.cursor()
-    for index, row in df.iterrows():
-        cursor.execute('INSERT INTO events (user_id, device_id, event_type, value, label) VALUES (?, ?, ?, ?, ?)',
-                       (user_id, row['DeviceID'], row['EventType'], row['Value'], row['Label']))
-    conn.commit()
-    conn.close()
+        conn = sqlite3.connect('database.db')
+        cursor = conn.cursor()
+        for index, row in df.iterrows():
+            cursor.execute('INSERT INTO events (user_id, device_id, event_type, value, label) VALUES (?, ?, ?, ?, ?)',
+                           (user_id, row['DeviceID'], row['EventType'], row['Value'], row['Label']))
+        conn.commit()
+        conn.close()
 
-    flash('File uploaded and processed successfully', 'success')
-    return redirect(url_for('home'))
+        flash('File uploaded and processed successfully', 'success')
+        return redirect(url_for('home'))
 
 if __name__ == '__main__':
     app.run(debug=True)
