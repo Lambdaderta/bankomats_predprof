@@ -61,7 +61,15 @@ def register():
         conn.commit()
         conn.close()
 
+        conn = sqlite3.connect('database.db')
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM users WHERE email = ? AND password = ?', (email, password))
+        user = cursor.fetchone()
+        conn.close()
+
         session['name'] = name
+        session['user_id'] = user[0]
+
 
         return redirect(url_for('home'))
 
