@@ -209,6 +209,7 @@
         var close2 = document.getElementById("close2");
         var mapDiv = document.getElementById("map");
         var currentPlacemarkType = null;
+        var atmCounter = 1;
 
         btn1.onclick = function() {
             modal1.style.display = "block";
@@ -268,50 +269,6 @@
                 zoom: 10 // Уровень масштабирования
             });
 
-            // Добавление меток
-            var placemark1 = new ymaps.Placemark([55.76, 37.64], {
-                balloonContent: 'Метка 1'
-            }, {
-                preset: 'islands#icon',
-                iconColor: '#0095b6'
-            });
-
-            var placemark2 = new ymaps.Placemark([55.78, 37.66], {
-                balloonContent: 'Метка 2'
-            }, {
-                preset: 'islands#circleIcon',
-                iconColor: '#ff0000'
-            });
-
-            var placemark3 = new ymaps.Placemark([55.74, 37.62], {
-                balloonContent: 'Метка 3'
-            }, {
-                preset: 'islands#dotIcon',
-                iconColor: '#ffff00'
-            });
-
-            // Добавление меток на карту
-            myMap.geoObjects.add(placemark1);
-            myMap.geoObjects.add(placemark2);
-            myMap.geoObjects.add(placemark3);
-
-            // Построение маршрута
-            var multiRoute = new ymaps.multiRouter.MultiRoute({
-                referencePoints: [
-                    [55.76, 37.64],
-                    [55.78, 37.66],
-                    [55.74, 37.62]
-                ],
-                params: {
-                    results: 1
-                }
-            }, {
-                boundsAutoApply: true
-            });
-
-            // Добавление маршрута на карту
-            myMap.geoObjects.add(multiRoute);
-
             // Обработчик клика на карту
             myMap.events.add('click', function (e) {
                 if (currentPlacemarkType) {
@@ -337,11 +294,12 @@
                             break;
                         case 'atm':
                             placemark = new ymaps.Placemark(coords, {
-                                balloonContent: 'Банкомат'
+                                balloonContent: 'Банкомат ' + atmCounter
                             }, {
                                 preset: 'islands#bankIcon',
                                 iconColor: '#ffff00'
                             });
+                            atmCounter++;
                             break;
                     }
 
