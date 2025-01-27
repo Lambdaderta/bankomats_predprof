@@ -108,9 +108,11 @@ def analyze_timestamps(df):
     df = df.sort_values(by=['DeviceID', 'Timestamp'])
 
     atm_working_times = {}
+    atm_non_working_times = {}
 
     for device_id, group in df.groupby('DeviceID'):
         working_times = []
+        non_working_times = []
         start_time = None
         for index, row in group.iterrows():
             if row['Label'] == 'все в порядке':
@@ -120,9 +122,18 @@ def analyze_timestamps(df):
                 if start_time is not None:
                     working_times.append((start_time, row['Timestamp']))
                     start_time = None
+                non_working_times.append((row['Timestamp'], row['Timestamp'] + pd.Timedelta(minutes=1)))
         if start_time is not None:
             working_times.append((start_time, pd.Timestamp.now()))
 
         atm_working_times[device_id] = working_times
+        atm_non_working_times[device_id] = non_working_times
 
-    return atm_working_times
+    return atm_working_times, atm_non_working_times
+
+def get_latest_status(df):
+    latest_status = {}
+    for device_id, group in df.groupby('DeviceID'):
+        latest_row = group.iloc[-1]
+        latest_status[device_id] = latest_row['Label']
+    return latest_status
