@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 import sqlite3
 import pandas as pd
 import os
+from classificator import process_csv, analyze_timestamps, get_latest_status
 
 app = Flask(__name__)
 app.secret_key = 'ключик_секретик'
@@ -29,6 +30,7 @@ def init_db():
             event_type TEXT,
             value TEXT,
             label TEXT,
+            timestamp TEXT,
             FOREIGN KEY (user_id) REFERENCES users (id)
         )
     ''')
@@ -49,6 +51,10 @@ def init_db():
             device_id TEXT,
             latitude REAL,
             longitude REAL,
+            working_times TEXT,
+            non_working_times TEXT,
+            latest_status TEXT,
+            atm_counter INTEGER DEFAULT 1,
             FOREIGN KEY (user_id) REFERENCES users (id),
             FOREIGN KEY (device_id) REFERENCES events (device_id)
         )
@@ -142,118 +148,37 @@ def upload():
         file.save(filename)
 
         try:
-            df = pd.read_csv(filename)
+            df = process_csv(filename)
         except Exception as e:
             flash(f'Error reading CSV file: {e}', 'error')
             return redirect(url_for('home'))
 
         user_id = session.get('user_id')
 
-        incassators = [
-            "ЗаменаКассеты",
-            "ЗаполнениеКассеты"
-        ]
-
-        mechanic = [
-            "ЗажеваннаяКупюра",
-            "ЗагрузкаПроцессораВысокая",
-            "ОжиданиеПользователя",
-            "АварийноеВыключение",
-            "ОшибкаОбновления",
-            "ОшибкаПечати",
-            "ОшибкаПриемаКупюр",
-            "ОшибкаКарт",
-            "ОшибкаВыдачиНаличности",
-            "ОшибкаТехническая",
-            "ОшибкаЖесткогоДиска",
-            "ОтказВОбслуживании",
-            "СигнализацияОшибки",
-            "ОбслуживаниеТребуется",
-            "ОшибкаСинхронизацииДанных",
-            "ОшибкаСети",
-            "ПроблемаСоСвязью"
-        ]
-
-        all_good = [
-            "ВосстановлениеСвязи",
-            "ВыходПользователя",
-            "ПроверкаБаланс",
-            "ОбработкаЗапроса",
-            "СнятиеНаличными",
-            "ВнесениеНаличных",
-            "ВходПользователя",
-            "ПроверкаЖесткогоДиска",
-            "ПерезагрузкаУстройства"
-        ]
-
-        chek_need = [
-            "СостояниеКартриджа",
-            "СостояниеПриемаКупюр",
-            "Предупреждение",
-            "ПроверкаСостоянияКлавиатуры",
-            "ПроверкаСостоянияКарт",
-            "ПроверкаЭнергоснабжения",
-            "ОбновлениеПрограммногоОбеспечения",
-            "ТестированиеУстройства",
-            "СостояниеУстройстваИзменено",
-            "ПроверкаКассеты",
-            "ОбновлениеБезопасности",
-            "ЗавершениеТранзакции",
-            "ПроверкаОбновлений",
-            "ПроверкаСистемныхЛогов",
-            "ТестированиеСистемы",
-            "УстановкаОбновлений",
-            "ПроверкаСостоянияСвязи",
-            "ПроверкаСостоянияПечати"
-        ]
-
-        incassator_values = [
-            'Низкий уровень наличных',
-            'Нет наличных',
-            'Купюры отсутствуют',
-        ]
-
-        good_values = [
-            'Клавиатура работает',
-            'Все карты в порядке',
-            'Энергоснабжение в порядке',
-            'Успешно',
-            'Хорошее',
-            'Полный',
-            'Работает',
-            'Обновления отсутствуют',
-            'Ошибок не найдено',
-            'Все системы работают',
-            'Принтер работает'
-        ]
-
-        def determine_label(row):
-            if row['EventType'] in incassators:
-                return 'нужна инкассаторская машина'
-            elif row['EventType'] in mechanic:
-                return 'нужен механик'
-            elif row['EventType'] in all_good:
-                return 'все в порядке'
-            elif row['EventType'] in chek_need:
-                if pd.notna(row['Value']):
-                    if row['Value'] in incassator_values:
-                        return 'нужна инкассаторская машина'
-                    elif row['Value'] in good_values:
-                        return 'все в порядке'
-                    else:
-                        return 'нужен механик'
-                else:
-                    return 'нужен механик'
-            else:
-                return 'неизвестно'
-
-        df['Label'] = df.apply(determine_label, axis=1)
-
         conn = sqlite3.connect('database.db')
         cursor = conn.cursor()
         for index, row in df.iterrows():
-            cursor.execute('INSERT INTO events (user_id, device_id, event_type, value, label) VALUES (?, ?, ?, ?, ?)',
-                           (user_id, row['DeviceID'], row['EventType'], row['Value'], row['Label']))
+            cursor.execute('INSERT INTO events (user_id, device_id, event_type, value, label, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
+                           (user_id, row['DeviceID'], row['EventType'], row['Value'], row['Label'], row['Timestamp']))
+        conn.commit()
+        conn.close()
+
+        atm_working_times, atm_non_working_times = analyze_timestamps(df)
+        latest_status = get_latest_status(df)
+
+        conn = sqlite3.connect('database.db')
+        cursor = conn.cursor()
+        for device_id, working_times in atm_working_times.items():
+            working_times_str = ', '.join([f'{start} - {end}' for start, end in working_times])
+            non_working_times_str = ', '.join([f'{start} - {end}' for start, end in atm_non_working_times[device_id]])
+            cursor.execute('SELECT * FROM atms WHERE user_id = ? AND device_id = ?', (user_id, device_id))
+            existing_atm = cursor.fetchone()
+            if existing_atm:
+                cursor.execute('UPDATE atms SET working_times = ?, non_working_times = ?, latest_status = ? WHERE user_id = ? AND device_id = ?',
+                               (working_times_str, non_working_times_str, latest_status[device_id], user_id, device_id))
+            else:
+                cursor.execute('INSERT INTO atms (user_id, device_id, working_times, non_working_times, latest_status) VALUES (?, ?, ?, ?, ?)',
+                               (user_id, device_id, working_times_str, non_working_times_str, latest_status[device_id]))
         conn.commit()
         conn.close()
 
@@ -328,11 +253,94 @@ def get_atms():
 
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
-    cursor.execute('SELECT device_id, latitude, longitude FROM atms WHERE user_id = ?', (user_id,))
+    cursor.execute('SELECT device_id, latitude, longitude, working_times, non_working_times, latest_status FROM atms WHERE user_id = ?', (user_id,))
     atms = cursor.fetchall()
     conn.close()
 
     return jsonify(atms)
+
+@app.route('/get_atms_with_coords', methods=['GET'])
+def get_atms_with_coords():
+    user_id = session.get('user_id')
+
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT device_id, latitude, longitude, working_times, non_working_times, latest_status FROM atms WHERE user_id = ? AND latitude IS NOT NULL AND longitude IS NOT NULL', (user_id,))
+    atms = cursor.fetchall()
+    conn.close()
+
+    return jsonify(atms)
+
+@app.route('/calculate_route', methods=['POST'])
+def calculate_route():
+    user_id = session.get('user_id')
+    type = request.json['type']
+
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    if type == 'mechanic':
+        cursor.execute('SELECT device_id, latitude, longitude FROM atms WHERE user_id = ? AND latest_status = "нужен механик"', (user_id,))
+    elif type == 'car':
+        cursor.execute('SELECT device_id, latitude, longitude FROM atms WHERE user_id = ? AND latest_status = "нужна инкассаторская машина"', (user_id,))
+    else:
+        cursor.execute('SELECT device_id, latitude, longitude FROM atms WHERE user_id = ?', (user_id,))
+    atms = cursor.fetchall()
+    conn.close()
+
+    waypoints = []
+    for atm in atms:
+        if atm[1] and atm[2]:
+            waypoints.append([atm[1], atm[2]])
+
+    return jsonify(waypoints)
+
+@app.route('/delete_placemark', methods=['POST'])
+def delete_placemark():
+    user_id = session.get('user_id')
+    type = request.json['type']
+    device_id = request.json.get('device_id')
+
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+
+    if type == 'atm' and device_id:
+        cursor.execute('DELETE FROM atms WHERE user_id = ? AND device_id = ?', (user_id, device_id))
+    else:
+        cursor.execute('DELETE FROM placemarks WHERE user_id = ? AND type = ?', (user_id, type))
+
+    conn.commit()
+    conn.close()
+
+    return jsonify({'status': 'success'})
+
+@app.route('/get_atm_statistics', methods=['POST'])
+def get_atm_statistics():
+    user_id = session.get('user_id')
+    device_id = request.json['device_id']
+
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT device_id, working_times, non_working_times, latest_status FROM atms WHERE user_id = ? AND device_id = ?', (user_id, device_id))
+    atm = cursor.fetchone()
+    conn.close()
+
+    if atm:
+        working_times = atm[1].split(', ')
+        non_working_times = atm[2].split(', ')
+
+        working_time = sum([(pd.to_datetime(end) - pd.to_datetime(start)).total_seconds() for start, end in [time.split(' - ') for time in working_times]])
+        non_working_time = sum([(pd.to_datetime(end) - pd.to_datetime(start)).total_seconds() for start, end in [time.split(' - ') for time in non_working_times]])
+
+        return jsonify({
+            'device_id': atm[0],
+            'latest_status': atm[3],
+            'working_times': atm[1],
+            'non_working_times': atm[2],
+            'working_time': working_time,
+            'non_working_time': non_working_time
+        })
+    else:
+        return jsonify({'status': 'error', 'message': 'ATM not found'})
 
 if __name__ == '__main__':
     app.run(debug=True)
