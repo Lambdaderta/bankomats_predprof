@@ -390,7 +390,7 @@
 
         deleteForm.onsubmit = function(event) {
             event.preventDefault();
-            var deviceId = document.getElementById("deviceId").value;
+            var deviceId = "Банкомат" + document.getElementById("deviceId").value;
             deletePlacemarkFromDB(currentPlacemarkType, deviceId);
             deleteModal.style.display = "none";
         }
