@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 import sqlite3
 import pandas as pd
 import os
@@ -11,6 +11,7 @@ def init_db():
     cursor = conn.cursor()
     cursor.execute('DROP TABLE IF EXISTS users')
     cursor.execute('DROP TABLE IF EXISTS events')
+    cursor.execute('DROP TABLE IF EXISTS placemarks')
     cursor.execute('''
         CREATE TABLE users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -27,6 +28,16 @@ def init_db():
             event_type TEXT,
             value TEXT,
             label TEXT,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE placemarks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            type TEXT,
+            latitude REAL,
+            longitude REAL,
             FOREIGN KEY (user_id) REFERENCES users (id)
         )
     ''')
@@ -69,7 +80,6 @@ def register():
 
         session['name'] = name
         session['user_id'] = user[0]
-
 
         return redirect(url_for('home'))
 
@@ -237,6 +247,43 @@ def upload():
 
         flash('File uploaded and processed successfully', 'success')
         return redirect(url_for('home'))
+
+@app.route('/save_placemark', methods=['POST'])
+def save_placemark():
+    user_id = session.get('user_id')
+    type = request.json['type']
+    latitude = request.json['latitude']
+    longitude = request.json['longitude']
+
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+
+    cursor.execute('SELECT * FROM placemarks WHERE user_id = ? AND type = ?', (user_id, type))
+    existing_placemark = cursor.fetchone()
+
+    if existing_placemark:
+        cursor.execute('UPDATE placemarks SET latitude = ?, longitude = ? WHERE user_id = ? AND type = ?',
+                       (latitude, longitude, user_id, type))
+    else:
+        cursor.execute('INSERT INTO placemarks (user_id, type, latitude, longitude) VALUES (?, ?, ?, ?)',
+                       (user_id, type, latitude, longitude))
+
+    conn.commit()
+    conn.close()
+
+    return jsonify({'status': 'success'})
+
+@app.route('/get_placemarks', methods=['GET'])
+def get_placemarks():
+    user_id = session.get('user_id')
+
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT type, latitude, longitude FROM placemarks WHERE user_id = ?', (user_id,))
+    placemarks = cursor.fetchall()
+    conn.close()
+
+    return jsonify(placemarks)
 
 if __name__ == '__main__':
     app.run(debug=True)
