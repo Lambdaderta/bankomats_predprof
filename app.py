@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 import sqlite3
 import pandas as pd
 import os
+from classificator import process_csv, analyze_timestamps
 
 app = Flask(__name__)
 app.secret_key = 'ключик_секретик'
@@ -29,6 +30,7 @@ def init_db():
             event_type TEXT,
             value TEXT,
             label TEXT,
+            timestamp TEXT,
             FOREIGN KEY (user_id) REFERENCES users (id)
         )
     ''')
@@ -49,6 +51,7 @@ def init_db():
             device_id TEXT,
             latitude REAL,
             longitude REAL,
+            working_times TEXT,
             FOREIGN KEY (user_id) REFERENCES users (id),
             FOREIGN KEY (device_id) REFERENCES events (device_id)
         )
@@ -142,118 +145,29 @@ def upload():
         file.save(filename)
 
         try:
-            df = pd.read_csv(filename)
+            df = process_csv(filename)
         except Exception as e:
             flash(f'Error reading CSV file: {e}', 'error')
             return redirect(url_for('home'))
 
         user_id = session.get('user_id')
 
-        incassators = [
-            "ЗаменаКассеты",
-            "ЗаполнениеКассеты"
-        ]
-
-        mechanic = [
-            "ЗажеваннаяКупюра",
-            "ЗагрузкаПроцессораВысокая",
-            "ОжиданиеПользователя",
-            "АварийноеВыключение",
-            "ОшибкаОбновления",
-            "ОшибкаПечати",
-            "ОшибкаПриемаКупюр",
-            "ОшибкаКарт",
-            "ОшибкаВыдачиНаличности",
-            "ОшибкаТехническая",
-            "ОшибкаЖесткогоДиска",
-            "ОтказВОбслуживании",
-            "СигнализацияОшибки",
-            "ОбслуживаниеТребуется",
-            "ОшибкаСинхронизацииДанных",
-            "ОшибкаСети",
-            "ПроблемаСоСвязью"
-        ]
-
-        all_good = [
-            "ВосстановлениеСвязи",
-            "ВыходПользователя",
-            "ПроверкаБаланс",
-            "ОбработкаЗапроса",
-            "СнятиеНаличными",
-            "ВнесениеНаличных",
-            "ВходПользователя",
-            "ПроверкаЖесткогоДиска",
-            "ПерезагрузкаУстройства"
-        ]
-
-        chek_need = [
-            "СостояниеКартриджа",
-            "СостояниеПриемаКупюр",
-            "Предупреждение",
-            "ПроверкаСостоянияКлавиатуры",
-            "ПроверкаСостоянияКарт",
-            "ПроверкаЭнергоснабжения",
-            "ОбновлениеПрограммногоОбеспечения",
-            "ТестированиеУстройства",
-            "СостояниеУстройстваИзменено",
-            "ПроверкаКассеты",
-            "ОбновлениеБезопасности",
-            "ЗавершениеТранзакции",
-            "ПроверкаОбновлений",
-            "ПроверкаСистемныхЛогов",
-            "ТестированиеСистемы",
-            "УстановкаОбновлений",
-            "ПроверкаСостоянияСвязи",
-            "ПроверкаСостоянияПечати"
-        ]
-
-        incassator_values = [
-            'Низкий уровень наличных',
-            'Нет наличных',
-            'Купюры отсутствуют',
-        ]
-
-        good_values = [
-            'Клавиатура работает',
-            'Все карты в порядке',
-            'Энергоснабжение в порядке',
-            'Успешно',
-            'Хорошее',
-            'Полный',
-            'Работает',
-            'Обновления отсутствуют',
-            'Ошибок не найдено',
-            'Все системы работают',
-            'Принтер работает'
-        ]
-
-        def determine_label(row):
-            if row['EventType'] in incassators:
-                return 'нужна инкассаторская машина'
-            elif row['EventType'] in mechanic:
-                return 'нужен механик'
-            elif row['EventType'] in all_good:
-                return 'все в порядке'
-            elif row['EventType'] in chek_need:
-                if pd.notna(row['Value']):
-                    if row['Value'] in incassator_values:
-                        return 'нужна инкассаторская машина'
-                    elif row['Value'] in good_values:
-                        return 'все в порядке'
-                    else:
-                        return 'нужен механик'
-                else:
-                    return 'нужен механик'
-            else:
-                return 'неизвестно'
-
-        df['Label'] = df.apply(determine_label, axis=1)
-
         conn = sqlite3.connect('database.db')
         cursor = conn.cursor()
         for index, row in df.iterrows():
-            cursor.execute('INSERT INTO events (user_id, device_id, event_type, value, label) VALUES (?, ?, ?, ?, ?)',
-                           (user_id, row['DeviceID'], row['EventType'], row['Value'], row['Label']))
+            cursor.execute('INSERT INTO events (user_id, device_id, event_type, value, label, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
+                           (user_id, row['DeviceID'], row['EventType'], row['Value'], row['Label'], row['Timestamp']))
+        conn.commit()
+        conn.close()
+
+        atm_working_times = analyze_timestamps(df)
+
+        conn = sqlite3.connect('database.db')
+        cursor = conn.cursor()
+        for device_id, working_times in atm_working_times.items():
+            working_times_str = ', '.join([f'{start} - {end}' for start, end in working_times])
+            cursor.execute('INSERT INTO atms (user_id, device_id, working_times) VALUES (?, ?, ?)',
+                           (user_id, device_id, working_times_str))
         conn.commit()
         conn.close()
 
@@ -328,7 +242,7 @@ def get_atms():
 
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
-    cursor.execute('SELECT device_id, latitude, longitude FROM atms WHERE user_id = ?', (user_id,))
+    cursor.execute('SELECT device_id, latitude, longitude, working_times FROM atms WHERE user_id = ?', (user_id,))
     atms = cursor.fetchall()
     conn.close()
 
