@@ -12,6 +12,7 @@ def init_db():
     cursor.execute('DROP TABLE IF EXISTS users')
     cursor.execute('DROP TABLE IF EXISTS events')
     cursor.execute('DROP TABLE IF EXISTS placemarks')
+    cursor.execute('DROP TABLE IF EXISTS atms')
     cursor.execute('''
         CREATE TABLE users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -39,6 +40,17 @@ def init_db():
             latitude REAL,
             longitude REAL,
             FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE atms (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            device_id TEXT,
+            latitude REAL,
+            longitude REAL,
+            FOREIGN KEY (user_id) REFERENCES users (id),
+            FOREIGN KEY (device_id) REFERENCES events (device_id)
         )
     ''')
     conn.commit()
@@ -284,6 +296,43 @@ def get_placemarks():
     conn.close()
 
     return jsonify(placemarks)
+
+@app.route('/save_atm', methods=['POST'])
+def save_atm():
+    user_id = session.get('user_id')
+    device_id = request.json['device_id']
+    latitude = request.json['latitude']
+    longitude = request.json['longitude']
+
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+
+    cursor.execute('SELECT * FROM atms WHERE user_id = ? AND device_id = ?', (user_id, device_id))
+    existing_atm = cursor.fetchone()
+
+    if existing_atm:
+        cursor.execute('UPDATE atms SET latitude = ?, longitude = ? WHERE user_id = ? AND device_id = ?',
+                       (latitude, longitude, user_id, device_id))
+    else:
+        cursor.execute('INSERT INTO atms (user_id, device_id, latitude, longitude) VALUES (?, ?, ?, ?)',
+                       (user_id, device_id, latitude, longitude))
+
+    conn.commit()
+    conn.close()
+
+    return jsonify({'status': 'success'})
+
+@app.route('/get_atms', methods=['GET'])
+def get_atms():
+    user_id = session.get('user_id')
+
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT device_id, latitude, longitude FROM atms WHERE user_id = ?', (user_id,))
+    atms = cursor.fetchall()
+    conn.close()
+
+    return jsonify(atms)
 
 if __name__ == '__main__':
     app.run(debug=True)
