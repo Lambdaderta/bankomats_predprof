@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, flash
 import sqlite3
 import pandas as pd
 import os
@@ -82,16 +82,10 @@ def register():
         cursor.execute('SELECT * FROM users WHERE email = ?', (email,))
         existing_user = cursor.fetchone()
 
-        if existing_user:
-            flash('Email already exists. Please choose a different email.', 'error')
-            return redirect(url_for('register'))
+        if not existing_user:
+            cursor.execute('INSERT INTO users (name, email, password) VALUES (?, ?, ?)', (name, email, password))
+            conn.commit()
 
-        cursor.execute('INSERT INTO users (name, email, password) VALUES (?, ?, ?)', (name, email, password))
-        conn.commit()
-        conn.close()
-
-        conn = sqlite3.connect('database.db')
-        cursor = conn.cursor()
         cursor.execute('SELECT * FROM users WHERE email = ? AND password = ?', (email, password))
         user = cursor.fetchone()
         conn.close()
@@ -119,9 +113,6 @@ def login():
             session['name'] = user[1]
             session['user_id'] = user[0]
             return redirect(url_for('home'))
-        else:
-            flash('Login failed. Please check your email and password.', 'error')
-            return redirect(url_for('login'))
 
     return render_template('login.html')
 
@@ -133,57 +124,47 @@ def logout():
 
 @app.route('/upload', methods=['POST'])
 def upload():
-    if 'file' not in request.files:
-        flash('No file part', 'error')
-        return redirect(url_for('home'))
-    file = request.files['file']
-    if file.filename == '':
-        flash('No selected file', 'error')
-        return redirect(url_for('home'))
-    if file:
-        upload_dir = 'uploads'
-        if not os.path.exists(upload_dir):
-            os.makedirs(upload_dir)
-        filename = os.path.join(upload_dir, file.filename)
-        file.save(filename)
+    if 'file' in request.files:
+        file = request.files['file']
+        if file.filename != '':
+            upload_dir = 'uploads'
+            if not os.path.exists(upload_dir):
+                os.makedirs(upload_dir)
+            filename = os.path.join(upload_dir, file.filename)
+            file.save(filename)
 
-        try:
             df = process_csv(filename)
-        except Exception as e:
-            flash(f'Error reading CSV file: {e}', 'error')
-            return redirect(url_for('home'))
 
-        user_id = session.get('user_id')
+            user_id = session.get('user_id')
 
-        conn = sqlite3.connect('database.db')
-        cursor = conn.cursor()
-        for index, row in df.iterrows():
-            cursor.execute('INSERT INTO events (user_id, device_id, event_type, value, label, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
-                           (user_id, row['DeviceID'], row['EventType'], row['Value'], row['Label'], row['Timestamp']))
-        conn.commit()
-        conn.close()
+            conn = sqlite3.connect('database.db')
+            cursor = conn.cursor()
+            for index, row in df.iterrows():
+                cursor.execute('INSERT INTO events (user_id, device_id, event_type, value, label, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
+                               (user_id, row['DeviceID'], row['EventType'], row['Value'], row['Label'], row['Timestamp']))
+            conn.commit()
+            conn.close()
 
-        atm_working_times, atm_non_working_times = analyze_timestamps(df)
-        latest_status = get_latest_status(df)
+            atm_working_times, atm_non_working_times = analyze_timestamps(df)
+            latest_status = get_latest_status(df)
 
-        conn = sqlite3.connect('database.db')
-        cursor = conn.cursor()
-        for device_id, working_times in atm_working_times.items():
-            working_times_str = ', '.join([f'{start} - {end}' for start, end in working_times])
-            non_working_times_str = ', '.join([f'{start} - {end}' for start, end in atm_non_working_times[device_id]])
-            cursor.execute('SELECT * FROM atms WHERE user_id = ? AND device_id = ?', (user_id, device_id))
-            existing_atm = cursor.fetchone()
-            if existing_atm:
-                cursor.execute('UPDATE atms SET working_times = ?, non_working_times = ?, latest_status = ? WHERE user_id = ? AND device_id = ?',
-                               (working_times_str, non_working_times_str, latest_status[device_id], user_id, device_id))
-            else:
-                cursor.execute('INSERT INTO atms (user_id, device_id, working_times, non_working_times, latest_status) VALUES (?, ?, ?, ?, ?)',
-                               (user_id, device_id, working_times_str, non_working_times_str, latest_status[device_id]))
-        conn.commit()
-        conn.close()
+            conn = sqlite3.connect('database.db')
+            cursor = conn.cursor()
+            for device_id, working_times in atm_working_times.items():
+                working_times_str = ', '.join([f'{start} - {end}' for start, end in working_times])
+                non_working_times_str = ', '.join([f'{start} - {end}' for start, end in atm_non_working_times[device_id]])
+                cursor.execute('SELECT * FROM atms WHERE user_id = ? AND device_id = ?', (user_id, device_id))
+                existing_atm = cursor.fetchone()
+                if existing_atm:
+                    cursor.execute('UPDATE atms SET working_times = ?, non_working_times = ?, latest_status = ? WHERE user_id = ? AND device_id = ?',
+                                   (working_times_str, non_working_times_str, latest_status[device_id], user_id, device_id))
+                else:
+                    cursor.execute('INSERT INTO atms (user_id, device_id, working_times, non_working_times, latest_status) VALUES (?, ?, ?, ?, ?)',
+                                   (user_id, device_id, working_times_str, non_working_times_str, latest_status[device_id]))
+            conn.commit()
+            conn.close()
 
-        flash('File uploaded and processed successfully', 'success')
-        return redirect(url_for('home'))
+    return redirect(url_for('home'))
 
 @app.route('/save_placemark', methods=['POST'])
 def save_placemark():
@@ -208,7 +189,7 @@ def save_placemark():
     conn.commit()
     conn.close()
 
-    return jsonify({'status': 'success'})
+    return {'status': 'success'}
 
 @app.route('/get_placemarks', methods=['GET'])
 def get_placemarks():
@@ -220,7 +201,7 @@ def get_placemarks():
     placemarks = cursor.fetchall()
     conn.close()
 
-    return jsonify(placemarks)
+    return placemarks
 
 @app.route('/save_atm', methods=['POST'])
 def save_atm():
@@ -245,7 +226,7 @@ def save_atm():
     conn.commit()
     conn.close()
 
-    return jsonify({'status': 'success'})
+    return {'status': 'success'}
 
 @app.route('/get_atms', methods=['GET'])
 def get_atms():
@@ -257,7 +238,7 @@ def get_atms():
     atms = cursor.fetchall()
     conn.close()
 
-    return jsonify(atms)
+    return atms
 
 @app.route('/get_atms_with_coords', methods=['GET'])
 def get_atms_with_coords():
@@ -269,7 +250,7 @@ def get_atms_with_coords():
     atms = cursor.fetchall()
     conn.close()
 
-    return jsonify(atms)
+    return atms
 
 @app.route('/calculate_route', methods=['POST'])
 def calculate_route():
@@ -292,7 +273,7 @@ def calculate_route():
         if atm[1] and atm[2]:
             waypoints.append([atm[1], atm[2]])
 
-    return jsonify(waypoints)
+    return waypoints
 
 @app.route('/delete_placemark', methods=['POST'])
 def delete_placemark():
@@ -311,7 +292,7 @@ def delete_placemark():
     conn.commit()
     conn.close()
 
-    return jsonify({'status': 'success'})
+    return {'status': 'success'}
 
 @app.route('/get_atm_statistics', methods=['POST'])
 def get_atm_statistics():
@@ -331,16 +312,14 @@ def get_atm_statistics():
         working_time = sum([(pd.to_datetime(end) - pd.to_datetime(start)).total_seconds() for start, end in [time.split(' - ') for time in working_times]])
         non_working_time = sum([(pd.to_datetime(end) - pd.to_datetime(start)).total_seconds() for start, end in [time.split(' - ') for time in non_working_times]])
 
-        return jsonify({
+        return {
             'device_id': atm[0],
             'latest_status': atm[3],
             'working_times': atm[1],
             'non_working_times': atm[2],
             'working_time': working_time,
             'non_working_time': non_working_time
-        })
-    else:
-        return jsonify({'status': 'error', 'message': 'ATM not found'})
+        }
 
 if __name__ == '__main__':
     app.run(debug=True)

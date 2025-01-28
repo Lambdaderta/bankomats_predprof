@@ -8,7 +8,7 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            background-color: rgb(164, 167, 164);
+            background-color: rgb(211, 210, 208);
             width: 100vw;
             height: 100vh;
             display: flex;
@@ -53,7 +53,7 @@
             justify-content: center;
             gap: 10%;
             align-items: center;
-            background-color: rgb(164, 167, 164);
+            background-color: rgb(211, 210, 208);
             width: 100vw;
             height: 10vh;
         }
@@ -71,12 +71,6 @@
             width: 100vw;
             margin-top: 2vh;
             z-index: 1;
-        }
-        .ad-btn {
-            width: 30vw;
-            border-radius: 10px;
-            height: 5vh;
-            font-size: medium;
         }
         .auth-buttons {
             display: flex;
@@ -154,85 +148,6 @@
         .upload-form input[type="submit"]:hover {
             background-color: #0056b3;
         }
-        .delete-modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            overflow: auto;
-            background-color: rgba(0,0,0,0.4);
-        }
-        .delete-modal-content {
-            background-color: #fefefe;
-            margin: 15% auto;
-            padding: 20px;
-            border: 1px solid #888;
-            width: 80%;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        .delete-modal-close {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-        }
-        .delete-modal-close:hover, .delete-modal-close:focus {
-            color: black;
-            text-decoration: none;
-            cursor: pointer;
-        }
-        .atm-buttons {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        .atm-buttons button {
-            padding: 10px 20px;
-            font-size: 16px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .atm-buttons button:hover {
-            background-color: #0056b3;
-        }
-        .statistics-modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            overflow: auto;
-            background-color: rgba(0,0,0,0.4);
-        }
-        .statistics-modal-content {
-            background-color: #fefefe;
-            margin: 15% auto;
-            padding: 20px;
-            border: 1px solid #888;
-            width: 80%;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        .statistics-modal-close {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-        }
-        .statistics-modal-close:hover, .statistics-modal-close:focus {
-            color: black;
-            text-decoration: none;
-            cursor: pointer;
-        }
     </style>
 </head>
 <body>
@@ -247,6 +162,7 @@
             <button id="btn1">Администрирование</button>
             <button id="btn2">Отчётность</button>
         </div>
+
         <div id="modal1" class="modal">
             <div class="modal-content">
                 <span class="close" id="close1">&times;</span>
@@ -256,12 +172,12 @@
                     <input type="submit" value="Загрузить данные">
                 </form>
                 <h3>Добавить метку</h3>
-                <button onclick="addPlacemark('car')">Добавить машину инкассации</button>
-                <button onclick="addPlacemark('mechanic')">Добавить механика</button>
-                <button onclick="addPlacemark('atm')">Добавить банкомат</button>
+                <button onclick="addMarker('car')">Добавить машину инкассации</button>
+                <button onclick="addMarker('mechanic')">Добавить механика</button>
+                <button onclick="addMarker('atm')">Добавить банкомат</button>
                 <h3>Удалить метку</h3>
-                <button onclick="deletePlacemark('car')">Удалить машину инкассации</button>
-                <button onclick="deletePlacemark('mechanic')">Удалить механика</button>
+                <button onclick="deleteMarker('car')">Удалить машину инкассации</button>
+                <button onclick="deleteMarker('mechanic')">Удалить механика</button>
                 <button onclick="openDeleteModal('atm')">Удалить банкомат</button>
                 <h3>Прокладка маршрутов</h3>
                 <button onclick="calculateRoute('mechanic')">Прокладка маршрута для механика</button>
@@ -275,9 +191,9 @@
                 <div class="atm-buttons" id="atmButtons"></div>
             </div>
         </div>
-        <div id="deleteModal" class="delete-modal">
-            <div class="delete-modal-content">
-                <span class="delete-modal-close" id="deleteModalClose">&times;</span>
+        <div id="deleteModal" class="modal">
+            <div class="modal-content">
+                <span class="close" id="deleteModalClose">&times;</span>
                 <h2>Удалить метку</h2>
                 <form id="deleteForm">
                     <label for="deviceId">Номер банкомата:</label>
@@ -286,9 +202,20 @@
                 </form>
             </div>
         </div>
-        <div id="statisticsModal" class="statistics-modal">
-            <div class="statistics-modal-content">
-                <span class="statistics-modal-close" id="statisticsModalClose">&times;</span>
+        <div id="addAtmModal" class="modal">
+            <div class="modal-content">
+                <span class="close" id="addAtmModalClose">&times;</span>
+                <h2>Добавить банкомат</h2>
+                <form id="addAtmForm">
+                    <label for="atmNumber">Номер банкомата:</label>
+                    <input type="text" id="atmNumber" name="atmNumber" required>
+                    <input type="submit" value="Добавить">
+                </form>
+            </div>
+        </div>
+        <div id="statisticsModal" class="modal">
+            <div class="modal-content">
+                <span class="close" id="statisticsModalClose">&times;</span>
                 <h2>Статистика банкомата</h2>
                 <div id="statisticsContent"></div>
             </div>
@@ -310,10 +237,13 @@
         var close1 = document.getElementById("close1");
         var close2 = document.getElementById("close2");
         var mapDiv = document.getElementById("map");
-        var currentPlacemarkType = null;
-        var atmCounter = 1;
-        var mechanicPlacemark = null;
-        var carPlacemark = null;
+        var addAtmModal = document.getElementById("addAtmModal");
+        var addAtmModalClose = document.getElementById("addAtmModalClose");
+        var addAtmForm = document.getElementById("addAtmForm");
+        var currentCoords = null;
+        var currentMarkerType = null;
+        var mechanicMarker = null;
+        var carMarker = null;
         var myMap;
         var deleteModal = document.getElementById("deleteModal");
         var deleteModalClose = document.getElementById("deleteModalClose");
@@ -358,6 +288,11 @@
             if (event.target == statisticsModal) {
                 statisticsModal.style.display = "none";
             }
+            if (event.target == addAtmModal) {
+                addAtmModal.style.display = "none";
+                mapDiv.style.pointerEvents = "auto";
+                currentCoords = null;
+            }
         }
 
         function toggleLogoutModal() {
@@ -373,15 +308,52 @@
             window.location.href = '/logout';
         }
 
-        function addPlacemark(type) {
-            currentPlacemarkType = type;
-            modal1.style.display = "none";
-            mapDiv.style.pointerEvents = "auto";
+        function addMarker(type) {
+            currentMarkerType = type;
+            if (type === 'atm') {
+                mapDiv.style.pointerEvents = "auto";
+                modal1.style.display = "none";
+            } else {
+                modal1.style.display = "none";
+                mapDiv.style.pointerEvents = "auto";
+            }
         }
 
         function openDeleteModal(type) {
-            currentPlacemarkType = type;
+            currentMarkerType = type;
             deleteModal.style.display = "block";
+        }
+
+        addAtmModalClose.onclick = function() {
+            addAtmModal.style.display = "none";
+            mapDiv.style.pointerEvents = "auto";
+            currentCoords = null;
+        }
+
+        addAtmForm.onsubmit = function(event) {
+            event.preventDefault();
+            var atmNumber = document.getElementById("atmNumber").value;
+            if (!atmNumber) {
+                alert('Пожалуйста, введите номер банкомата.');
+                return;
+            }
+
+            var deviceId = 'Банкомат' + atmNumber;
+            var marker = new ymaps.Placemark(currentCoords, {
+                balloonContent: deviceId
+            }, {
+                preset: 'islands#bankIcon',
+                iconColor: '#ffff00'
+            });
+
+            saveAtm(deviceId, currentCoords[0], currentCoords[1]);
+            myMap.geoObjects.add(marker);
+
+            addAtmModal.style.display = "none";
+            modal1.style.display = "none";
+            mapDiv.style.pointerEvents = "auto";
+            document.getElementById("atmNumber").value = "";
+            currentCoords = null;
         }
 
         deleteModalClose.onclick = function() {
@@ -391,15 +363,15 @@
         deleteForm.onsubmit = function(event) {
             event.preventDefault();
             var deviceId = "Банкомат" + document.getElementById("deviceId").value;
-            deletePlacemarkFromDB(currentPlacemarkType, deviceId);
+            deleteMarkerFromDB(currentMarkerType, deviceId);
             deleteModal.style.display = "none";
         }
 
-        function deletePlacemark(type) {
-            deletePlacemarkFromDB(type);
+        function deleteMarker(type) {
+            deleteMarkerFromDB(type);
         }
 
-        function deletePlacemarkFromDB(type, deviceId = null) {
+        function deleteMarkerFromDB(type, deviceId = null) {
             fetch('/delete_placemark', {
                 method: 'POST',
                 headers: {
@@ -412,23 +384,23 @@
             }).then(response => response.json())
               .then(data => {
                   if (data.status === 'success') {
-                      console.log('Placemark deleted successfully');
-                      myMap.geoObjects.each(function (placemark) {
-                          if (type === 'atm' && placemark.properties.get('balloonContent') === deviceId) {
-                              myMap.geoObjects.remove(placemark);
-                          } else if (type === 'car' && placemark.properties.get('balloonContent') === 'Машина инкассации') {
-                              myMap.geoObjects.remove(placemark);
-                          } else if (type === 'mechanic' && placemark.properties.get('balloonContent') === 'Механик') {
-                              myMap.geoObjects.remove(placemark);
+                      console.log('Marker deleted successfully');
+                      myMap.geoObjects.each(function (marker) {
+                          if (type === 'atm' && marker.properties.get('balloonContent') === deviceId) {
+                              myMap.geoObjects.remove(marker);
+                          } else if (type === 'car' && marker.properties.get('balloonContent') === 'Машина инкассации') {
+                              myMap.geoObjects.remove(marker);
+                          } else if (type === 'mechanic' && marker.properties.get('balloonContent') === 'Механик') {
+                              myMap.geoObjects.remove(marker);
                           }
                       });
                   } else {
-                      console.error('Failed to delete placemark');
+                      console.error('Failed to delete marker');
                   }
               });
         }
 
-        function savePlacemark(type, latitude, longitude) {
+        function saveMarker(type, latitude, longitude) {
             fetch('/save_placemark', {
                 method: 'POST',
                 headers: {
@@ -442,21 +414,21 @@
             }).then(response => response.json())
               .then(data => {
                   if (data.status === 'success') {
-                      console.log('Placemark saved successfully');
+                      console.log('Marker saved successfully');
                   } else {
-                      console.error('Failed to save placemark');
+                      console.error('Failed to save marker');
                   }
               });
         }
 
-        function saveAtm(device_id, latitude, longitude) {
+        function saveAtm(deviceId, latitude, longitude) {
             fetch('/save_atm', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    device_id: device_id,
+                    device_id: deviceId,
                     latitude: latitude,
                     longitude: longitude
                 })
@@ -484,30 +456,30 @@
                     placemarks.forEach(placemark => {
                         var coords = [placemark[1], placemark[2]];
                         var type = placemark[0];
-                        var placemarkObj;
+                        var markerObj;
 
                         switch (type) {
                             case 'car':
-                                placemarkObj = new ymaps.Placemark(coords, {
+                                markerObj = new ymaps.Placemark(coords, {
                                     balloonContent: 'Машина инкассации'
                                 }, {
                                     preset: 'islands#carIcon',
                                     iconColor: '#0095b6'
                                 });
-                                carPlacemark = placemarkObj;
+                                carMarker = markerObj;
                                 break;
                             case 'mechanic':
-                                placemarkObj = new ymaps.Placemark(coords, {
+                                markerObj = new ymaps.Placemark(coords, {
                                     balloonContent: 'Механик'
                                 }, {
                                     preset: 'islands#truckIcon',
                                     iconColor: '#ff0000'
                                 });
-                                mechanicPlacemark = placemarkObj;
+                                mechanicMarker = markerObj;
                                 break;
                         }
 
-                        myMap.geoObjects.add(placemarkObj);
+                        myMap.geoObjects.add(markerObj);
                     });
                 });
 
@@ -516,116 +488,113 @@
                 .then(atms => {
                     atms.forEach(atm => {
                         var coords = [atm[1], atm[2]];
-                        var device_id = atm[0];
-                        var placemarkObj = new ymaps.Placemark(coords, {
-                            balloonContent: device_id
+                        var deviceId = atm[0];
+                        var markerObj = new ymaps.Placemark(coords, {
+                            balloonContent: deviceId
                         }, {
                             preset: 'islands#bankIcon',
                             iconColor: '#ffff00'
                         });
 
-                        myMap.geoObjects.add(placemarkObj);
+                        myMap.geoObjects.add(markerObj);
                     });
                 });
 
-            myMap.events.add('click', function (e) {
-                if (currentPlacemarkType) {
-                    var coords = e.get('coords');
-                    var placemark;
+                myMap.events.add('click', function (e) {
+                    if (currentMarkerType) {
+                        var coords = e.get('coords');
+                        if (currentMarkerType === 'atm') {
+                            currentCoords = coords;
+                            addAtmModal.style.display = "block";
+                            modal1.style.display = "none";
+                            return;
+                        }
 
-                    switch (currentPlacemarkType) {
-                        case 'car':
-                            if (carPlacemark) {
-                                alert('Можно добавить только одну машину инкассации.');
-                                return;
-                            }
-                            placemark = new ymaps.Placemark(coords, {
-                                balloonContent: 'Машина инкассации'
-                            }, {
-                                preset: 'islands#carIcon',
-                                iconColor: '#0095b6'
-                            });
-                            carPlacemark = placemark;
-                            savePlacemark('car', coords[0], coords[1]);
-                            break;
-                        case 'mechanic':
-                            if (mechanicPlacemark) {
-                                alert('Можно добавить только одного механика.');
-                                return;
-                            }
-                            placemark = new ymaps.Placemark(coords, {
-                                balloonContent: 'Механик'
-                            }, {
-                                preset: 'islands#truckIcon',
-                                iconColor: '#ff0000'
-                            });
-                            mechanicPlacemark = placemark;
-                            savePlacemark('mechanic', coords[0], coords[1]);
-                            break;
-                        case 'atm':
-                            var device_id = 'Банкомат' + atmCounter;
-                            placemark = new ymaps.Placemark(coords, {
-                                balloonContent: device_id
-                            }, {
-                                preset: 'islands#bankIcon',
-                                iconColor: '#ffff00'
-                            });
-                            atmCounter++;
-                            saveAtm(device_id, coords[0], coords[1]);
-                            break;
+                        var marker;
+                        switch (currentMarkerType) {
+                            case 'car':
+                                if (carMarker) {
+                                    alert('Можно добавить только одну машину инкассации.');
+                                    return;
+                                }
+                                marker = new ymaps.Placemark(coords, {
+                                    balloonContent: 'Машина инкассации'
+                                }, {
+                                    preset: 'islands#carIcon',
+                                    iconColor: '#0095b6'
+                                });
+                                carMarker = marker;
+                                saveMarker('car', coords[0], coords[1]);
+                                break;
+                            case 'mechanic':
+                                if (mechanicMarker) {
+                                    alert('Можно добавить только одного механика.');
+                                    return;
+                                }
+                                marker = new ymaps.Placemark(coords, {
+                                    balloonContent: 'Механик'
+                                }, {
+                                    preset: 'islands#truckIcon',
+                                    iconColor: '#ff0000'
+                                });
+                                mechanicMarker = marker;
+                                saveMarker('mechanic', coords[0], coords[1]);
+                                break;
+                        }
+
+                        if (marker) {
+                            myMap.geoObjects.add(marker);
+                        }
+                        currentMarkerType = null;
                     }
-
-                    myMap.geoObjects.add(placemark);
-                    currentPlacemarkType = null;
-                }
-            });
+                });
         }
 
         function calculateRoute(type) {
-        fetch('/calculate_route', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                type: type
-            })
-        }).then(response => response.json())
-          .then(waypoints => {
-              if (waypoints.length > 1) {
-                  let routeWaypoints = [...waypoints];
+            fetch('/calculate_route', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    type: type
+                })
+            }).then(response => response.json())
+              .then(waypoints => {
+                  if (waypoints.length > 1) {
+                      let routeWaypoints = [...waypoints];
 
-                  if (type === 'car' && carPlacemark) {
-                      routeWaypoints.unshift(carPlacemark.geometry.getCoordinates());
-                  } else if (type === 'mechanic' && mechanicPlacemark) {
-                      routeWaypoints.unshift(mechanicPlacemark.geometry.getCoordinates());
+                      if (type === 'car' && carMarker) {
+                          routeWaypoints.unshift(carMarker.geometry.getCoordinates());
+                      } else if (type === 'mechanic' && mechanicMarker) {
+                          routeWaypoints.unshift(mechanicMarker.geometry.getCoordinates());
+                      }
+
+                      ymaps.route(routeWaypoints).then(function (route) {
+                          myMap.geoObjects.add(route);
+                      }, function (error) {
+                          alert('Возникла ошибка: ' + error.message);
+                      });
+                  } else {
+                      alert('Недостаточно точек для прокладки маршрута.');
                   }
+              });
+        }
 
-                  ymaps.route(routeWaypoints).then(function (route) {
-                      myMap.geoObjects.add(route);
-                  }, function (error) {
-                      alert('Возникла ошибка: ' + error.message);
-                  });
-              } else {
-                  alert('Недостаточно точек для прокладки маршрута.');
-              }
-          });
-    }
-
-    function loadAtmButtons() {
-        fetch('/get_atms_with_coords')
-            .then(response => response.json())
-            .then(atms => {
-                const atmButtonsContainer = document.getElementById('atmButtons');
-                atmButtonsContainer.innerHTML = '';
-                atms.forEach(atm => {
-                    const button = document.createElement('button');
-                    button.textContent = atm[0];
-                    button.onclick = () => showAtmStatistics(atm[0]);
-                    atmButtonsContainer.appendChild(button);
+        function loadAtmButtons() {
+            fetch('/get_atms_with_coords')
+                .then(response => response.json())
+                .then(atms => {
+                    const atmButtonsContainer = document.getElementById('atmButtons');
+                    atmButtonsContainer.innerHTML = '';
+                    atms.forEach(atm => {
+                        const button = document.createElement('button');
+                        button.textContent = atm[0];
+                        button.onclick = () => showAtmStatistics(atm[0]);
+                        atmButtonsContainer.appendChild(button);
+                    });
                 });
-            });
-    }
+        }
 
         function showAtmStatistics(deviceId) {
             fetch('/get_atm_statistics', {
